@@ -302,8 +302,10 @@ ${entryText}
         {/* お薬管理 */}
         {view === "meds" && (
           <div>
+            <ManualMedForm onAdd={m => saveMeds([...meds, { ...m, id: `med_${Date.now()}` }])} />
+
             <div style={{ ...C, background:"rgba(99,179,237,0.06)", border:"1px solid rgba(99,179,237,0.2)", textAlign:"center" }}>
-              <div style={{ fontSize:"13px", color:"#7c8a9e", marginBottom:"12px" }}>処方箋を撮影するとAIが薬の情報を自動読み取りします</div>
+              <div style={{ fontSize:"13px", color:"#7c8a9e", marginBottom:"12px" }}>処方箋を撮影するとAIが薬の情報を自動読み取りします<br/><span style={{fontSize:"11px",color:"#4a5568"}}>(APIキー設定後に使用可能)</span></div>
               <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleScan} style={{ display:"none" }} />
               <button onClick={() => fileRef.current?.click()} disabled={scanLoading} style={{ width:"100%", padding:"14px", borderRadius:"10px", border:"1px solid rgba(99,179,237,0.4)", background:"rgba(99,179,237,0.15)", color:"#63b3ed", fontSize:"14px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold", opacity:scanLoading?0.6:1 }}>
                 {scanLoading ? "📷 読み取り中..." : "📷 処方箋を撮影・読み込む"}
@@ -365,6 +367,51 @@ ${entryText}
     </div>
   );
 }
+
+function ManualMedForm({ onAdd }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [dose, setDose] = useState("");
+  const [timing, setTiming] = useState("夕食後");
+
+  function submit() {
+    if (!name.trim()) return;
+    onAdd({ name: name.trim(), dose: dose.trim() || "-", timing, note: "" });
+    setName(""); setDose(""); setTiming("夕食後"); setOpen(false);
+  }
+
+  return (
+    <div style={{ ...C, border:"1px solid rgba(52,211,153,0.2)", background:"rgba(52,211,153,0.03)" }}>
+      <button onClick={() => setOpen(!open)} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(52,211,153,0.35)", background:"rgba(52,211,153,0.15)", color:"#34d399", fontSize:"14px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold" }}>
+        {open ? "✕ キャンセル" : "＋ 薬を手動で追加"}
+      </button>
+      {open && (
+        <div style={{ marginTop:"14px" }}>
+          <div style={{ marginBottom:"10px" }}>
+            <div style={{ fontSize:"11px", color:"#7c8a9e", marginBottom:"5px" }}>薬の名前 *</div>
+            <input value={name} onChange={e => setName(e.target.value)} placeholder="例：トリンテリックス錠10mg" style={{...TA, padding:"10px", resize:"none"}} />
+          </div>
+          <div style={{ marginBottom:"10px" }}>
+            <div style={{ fontSize:"11px", color:"#7c8a9e", marginBottom:"5px" }}>用量</div>
+            <input value={dose} onChange={e => setDose(e.target.value)} placeholder="例：1回2錠" style={{...TA, padding:"10px", resize:"none"}} />
+          </div>
+          <div style={{ marginBottom:"14px" }}>
+            <div style={{ fontSize:"11px", color:"#7c8a9e", marginBottom:"8px" }}>飲むタイミング</div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:"6px" }}>
+              {["朝食後","昼食後","夕食後","就寝前","朝夕食後","毎食後"].map(t => (
+                <button key={t} onClick={() => setTiming(t)} style={{ padding:"8px 12px", borderRadius:"8px", border:`1px solid ${timing===t?"rgba(52,211,153,0.4)":"rgba(255,255,255,0.1)"}`, background:timing===t?"rgba(52,211,153,0.2)":"rgba(255,255,255,0.04)", color:timing===t?"#34d399":"#7c8a9e", fontSize:"12px", fontFamily:"inherit", cursor:"pointer" }}>{t}</button>
+              ))}
+            </div>
+          </div>
+          <button onClick={submit} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(52,211,153,0.4)", background:"rgba(52,211,153,0.2)", color:"#34d399", fontSize:"14px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold" }}>
+            ✓ 追加する
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 
 const C  = { background:"rgba(255,255,255,0.04)", borderRadius:"14px", padding:"16px", marginBottom:"12px", border:"1px solid rgba(255,255,255,0.07)" };
 const L  = { fontSize:"12px", color:"#7c8a9e", letterSpacing:"1px", textTransform:"uppercase", marginBottom:"12px" };
