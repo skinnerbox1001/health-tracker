@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 const ENTRY_KEY = "health-tracker-entries";
 const MED_KEY   = "health-tracker-meds";
 const APT_KEY   = "health-tracker-appointments"; // {lastVisit, nextVisit}
+const NOTE_KEY  = "health-tracker-notes"; // [{id, date, text}]
 
 const moodLabels = ["","最悪","かなり辛い","辛い","しんどい","普通以下","まあまあ","普通","良い","かなり良い","最高"];
 const moodColors = ["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"];
@@ -39,12 +40,14 @@ export default function HealthTracker() {
   const [scannedMeds, setScannedMeds] = useState(null);
   const [scanError, setScanError]     = useState("");
   const [calStatus, setCalStatus]     = useState(""); // "", "loading", "done", "error"
+  const [notes, setNotes]               = useState([]); // [{id, date, text}]
   const fileRef = useRef();
 
   useEffect(() => {
     try { const e = localStorage.getItem(ENTRY_KEY); if (e) { const p=JSON.parse(e); setEntries(p); const k=getTodayKey(); if(p[k]) setToday(p[k]); } } catch {}
     try { const m = localStorage.getItem(MED_KEY);   if (m) setMeds(JSON.parse(m)); } catch {}
     try { const a = localStorage.getItem(APT_KEY);   if (a) setApt(JSON.parse(a)); } catch {}
+    try { const n = localStorage.getItem(NOTE_KEY);  if (n) setNotes(JSON.parse(n)); } catch {}
   }, []);
 
   useEffect(() => {
@@ -72,6 +75,11 @@ export default function HealthTracker() {
   function saveApt(newApt) {
     setApt(newApt);
     try { localStorage.setItem(APT_KEY, JSON.stringify(newApt)); } catch {}
+  }
+
+  function saveNotes(newNotes) {
+    setNotes(newNotes);
+    try { localStorage.setItem(NOTE_KEY, JSON.stringify(newNotes)); } catch {}
   }
 
   function takeAll() {
@@ -112,31 +120,25 @@ export default function HealthTracker() {
   }
 
   // ── Google Calendar 同期 ──
-  async function syncToCalendar() {
-    if (!apt.nextVisit) { setCalStatus("error"); return; }
-    setCalStatus("loading");
-    try {
-      const dateStr = apt.nextVisit; // YYYY-MM-DD
-      const timeInfo = apt.nextVisitTime
-        ? `開始時刻：${dateStr}T${apt.nextVisitTime}:00+09:00\n終了時刻：${dateStr}T${apt.nextVisitTime.split(":")[0].padStart(2,"0")}:${String(parseInt(apt.nextVisitTime.split(":")[1]||"0")+30).padStart(2,"0")}:00+09:00\n（30分のイベントとして作成）`
-        : "終日イベントとして作成してください。";
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
-          mcp_servers: [{ type:"url", url:"https://calendarmcp.googleapis.com/mcp/v1", name:"google-calendar" }],
-          messages: [{ role:"user", content:`Googleカレンダーに以下のイベントを作成してください。
-タイトル：精神科受診
-日付：${dateStr}
-${timeInfo}
-説明：高須メンタルクリニック` }]
-        })
-      });
-      const data = await res.json();
-      const hasError = data.content?.some(b => b.text?.includes("error") || b.text?.includes("失敗"));
-      setCalStatus(hasError ? "error" : "done");
-    } catch { setCalStatus("error"); }
-    setTimeout(() => setCalStatus(""), 4000);
+  function syncToCalendar() {
+    if (!apt.nextVisit) return;
+    const d = apt.nextVisit.replace(/-/g, "");
+    let startStr, endStr;
+    if (apt.nextVisitTime) {
+      const [h, m] = apt.nextVisitTime.split(":").map(Number);
+      const endH = h + (m + 60 >= 60 ? 1 : 0);
+      const endM = (m + 60) % 60;
+      startStr = `${d}T${String(h).padStart(2,"0")}${String(m).padStart(2,"0")}00`;
+      endStr   = `${d}T${String(endH % 24).padStart(2,"0")}${String(endM).padStart(2,"0")}00`;
+    } else {
+      startStr = d; endStr = d;
+    }
+    const url = `https://calendar.google.com/calendar/render?action=TEMPLATE`
+      + `&text=${encodeURIComponent("精神科受診")}`
+      + `&dates=${startStr}/${endStr}`
+      + `&details=${encodeURIComponent("高須メンタルクリニック")}`
+      + `&location=${encodeURIComponent("高須メンタルクリニック")}`;
+    window.open(url, "_blank");
   }
 
   // ── 診察サマリー生成 ──
@@ -154,6 +156,12 @@ ${timeInfo}
     const rangeKeys = allKeys.filter(k => k >= startDate && k <= endDate);
     const targetKeys = rangeKeys.length > 0 ? rangeKeys : allKeys.slice(-14);
 
+    // 要注目日（スコア4以下）を自動抽出
+    const flaggedDays = targetKeys.filter(k => entries[k]?.mood <= 4);
+
+    // 経過ノートを期間内のものに絞る
+    const relevantNotes = notes.filter(n => n.date >= startDate && n.date <= endDate);
+
     const medNames = meds.map(m=>m.name).join("、") || "なし";
     const entryText = targetKeys.map(k => {
       const e = entries[k];
@@ -165,12 +173,25 @@ ${timeInfo}
       ? `前回受診日(${formatDate(apt.lastVisit)})〜次回受診日(${formatDate(apt.nextVisit)||"未設定"})`
       : `記録開始(${formatDate(allKeys[0])})〜現在`;
 
+    const notesText = relevantNotes.length > 0
+      ? relevantNotes.map(n => `【${formatDate(n.date)}】${n.text}`).join("\n")
+      : "なし";
+    const flaggedText = flaggedDays.length > 0
+      ? flaggedDays.map(k => `${formatDate(k)}（スコア${entries[k].mood}）`).join("、")
+      : "なし";
+
     const prompt = `患者の体調記録です。うつ病療養中。処方薬：${medNames}。
 対象期間：${periodText}（${targetKeys.length}日分）
 
 精神科・心療内科の診察（10〜15分）向けに整理してください。
 
-【記録】
+【経過ノート（重要イベント・節目）】
+${notesText}
+
+【要注目日（気分スコア4以下）】
+${flaggedText}
+
+【日別記録】
 ${entryText}
 
 以下の形式で出力してください：
@@ -212,7 +233,7 @@ ${entryText}
       </div>
 
       <div style={{ display:"flex", padding:"12px 16px", gap:"6px" }}>
-        {[["log","今日"],["history","履歴"],["meds","お薬"],["summary","診察"]].map(([v,label]) => (
+        {[["log","今日"],["history","履歴"],["notes","経過"],["meds","お薬"],["summary","診察"]].map(([v,label]) => (
           <button key={v} onClick={() => setView(v)} style={{ flex:1, padding:"10px 4px", borderRadius:"10px", border:"none", background:view===v?"rgba(99,179,237,0.2)":"rgba(255,255,255,0.04)", color:view===v?"#63b3ed":"#7c8a9e", fontSize:"12px", fontFamily:"inherit", cursor:"pointer", borderBottom:view===v?"2px solid #63b3ed":"2px solid transparent", transition:"all 0.2s" }}>{label}</button>
         ))}
       </div>
@@ -378,6 +399,18 @@ ${entryText}
           </div>
         )}
 
+        {/* ═══ 経過ノート ═══ */}
+        {view === "notes" && (
+          <div>
+            <NotesForm
+              notes={notes}
+              entries={entries}
+              onSave={saveNotes}
+              formatDate={formatDate}
+            />
+          </div>
+        )}
+
         {/* ═══ 診察 ═══ */}
         {view === "summary" && (
           <div>
@@ -404,8 +437,8 @@ ${entryText}
               </div>
 
               {apt.nextVisit && (
-                <button onClick={syncToCalendar} disabled={calStatus==="loading"} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(192,132,252,0.4)", background:calStatus==="done"?"rgba(52,211,153,0.2)":calStatus==="error"?"rgba(239,68,68,0.15)":"rgba(192,132,252,0.15)", color:calStatus==="done"?"#34d399":calStatus==="error"?"#f87171":"#c084fc", fontSize:"13px", fontFamily:"inherit", cursor:"pointer", transition:"all 0.3s" }}>
-                  {calStatus==="loading" ? "⏳ 同期中..." : calStatus==="done" ? "✓ Googleカレンダーに追加しました" : calStatus==="error" ? "⚠️ 同期に失敗しました" : "📅 Googleカレンダーに受診日を追加"}
+                <button onClick={syncToCalendar} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(192,132,252,0.4)", background:"rgba(192,132,252,0.15)", color:"#c084fc", fontSize:"13px", fontFamily:"inherit", cursor:"pointer" }}>
+                  📅 Googleカレンダーに受診日を追加
                 </button>
               )}
 
@@ -425,6 +458,9 @@ ${entryText}
               {loading ? "生成中..." : "📋 診察サマリーを生成"}
             </button>
             {loading && <div style={{ textAlign:"center", padding:"30px", color:"#7c8a9e" }}><div style={{ fontSize:"28px", marginBottom:"12px" }}>🤔</div><div>記録を分析中...</div></div>}
+
+            {/* データ出力 */}
+            <DataExport entries={entries} meds={meds} notes={notes} formatDate={formatDate} />
             {aiSummary && !loading && <div style={{ ...C, whiteSpace:"pre-wrap", fontSize:"14px", lineHeight:"1.8", color:"#d4cfc8" }}>{aiSummary}</div>}
           </div>
         )}
@@ -432,6 +468,122 @@ ${entryText}
     </div>
   );
 }
+
+function NotesForm({ notes, entries, onSave, formatDate }) {
+  const [text, setText] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
+
+  // 要注目日（スコア4以下）を自動取得
+  const flagged = Object.entries(entries)
+    .filter(([, e]) => e.mood <= 4)
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .slice(0, 10);
+
+  function addNote() {
+    if (!text.trim()) return;
+    const newNote = { id: `note_${Date.now()}`, date, text: text.trim() };
+    onSave([newNote, ...notes]);
+    setText(""); setDate(new Date().toISOString().split("T")[0]);
+  }
+
+  return (
+    <div>
+      {/* 要注目日バナー */}
+      {flagged.length > 0 && (
+        <div style={{ ...C, border:"1px solid rgba(239,68,68,0.3)", background:"rgba(239,68,68,0.05)", marginBottom:"12px" }}>
+          <div style={{ fontSize:"12px", color:"#f87171", marginBottom:"10px", fontWeight:"bold" }}>🚨 要注目日（気分4以下）</div>
+          {flagged.map(([key, e]) => (
+            <div key={key} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 0", borderBottom:"1px solid rgba(255,255,255,0.04)", fontSize:"13px" }}>
+              <span style={{ color:"#9ca3af" }}>{formatDate(key)}</span>
+              <span style={{ color:["","#ef4444","#f97316","#fb923c","#fbbf24"][e.mood] || "#fbbf24", fontWeight:"bold" }}>
+                {e.mood}/10 — {["","最悪","かなり辛い","辛い","しんどい"][e.mood] || "しんどい"}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 新規ノート入力 */}
+      <div style={{ ...C, border:"1px solid rgba(192,132,252,0.25)", background:"rgba(192,132,252,0.04)" }}>
+        <div style={L}>📝 経過・特記事項を追加</div>
+        <div style={{ marginBottom:"10px" }}>
+          <div style={{ fontSize:"11px", color:"#7c8a9e", marginBottom:"5px" }}>日付</div>
+          <input type="date" value={date} onChange={e=>setDate(e.target.value)}
+            style={{...TA, padding:"10px", colorScheme:"dark"}} />
+        </div>
+        <div style={{ marginBottom:"12px" }}>
+          <div style={{ fontSize:"11px", color:"#7c8a9e", marginBottom:"5px" }}>内容</div>
+          <textarea value={text} onChange={e=>setText(e.target.value)}
+            placeholder="例：今日から薬が変わった&#10;例：職場の件で強いストレスがあった&#10;例：受診開始時の状況メモ"
+            style={TA} rows={4} />
+        </div>
+        <button onClick={addNote} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(192,132,252,0.4)", background:"rgba(192,132,252,0.2)", color:"#c084fc", fontSize:"14px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold" }}>
+          ＋ 追加する
+        </button>
+      </div>
+
+      {/* ノート一覧 */}
+      <div style={{ fontSize:"12px", color:"#7c8a9e", margin:"16px 0 8px", letterSpacing:"1px", textTransform:"uppercase" }}>経過記録</div>
+      {notes.length === 0
+        ? <div style={{ ...C, textAlign:"center", color:"#4a5568", fontSize:"13px", lineHeight:"1.8" }}>
+            まだ経過記録がありません<br/>
+            <span style={{fontSize:"11px"}}>治療の経緯や節目を記録しましょう</span>
+          </div>
+        : [...notes].sort((a,b)=>b.date.localeCompare(a.date)).map(n => (
+          <div key={n.id} style={{...C, marginBottom:"10px"}}>
+            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:"8px" }}>
+              <span style={{ fontSize:"12px", color:"#c084fc" }}>{formatDate(n.date)}</span>
+              <button onClick={()=>onSave(notes.filter(x=>x.id!==n.id))} style={{ padding:"3px 8px", borderRadius:"6px", border:"1px solid rgba(239,68,68,0.3)", background:"rgba(239,68,68,0.1)", color:"#f87171", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>削除</button>
+            </div>
+            <div style={{ fontSize:"14px", color:"#d4cfc8", lineHeight:"1.7", whiteSpace:"pre-wrap" }}>{n.text}</div>
+          </div>
+        ))
+      }
+    </div>
+  );
+}
+
+function DataExport({ entries, meds, notes, formatDate }) {
+  const [copied, setCopied] = useState(false);
+
+  function exportData() {
+    const allKeys = Object.keys(entries).sort();
+    const medNames = meds.map(m=>`${m.name}（${m.dose}・${m.timing}）`).join("、") || "なし";
+    const noteText = notes.length > 0
+      ? notes.sort((a,b)=>a.date.localeCompare(b.date)).map(n=>`・${formatDate(n.date)}：${n.text}`).join("\n")
+      : "なし";
+    const recordText = allKeys.map(k => {
+      const e = entries[k];
+      return `${formatDate(k)} 気分:${e.mood}/10 睡眠:${e.sleep}h 食事:${["ほぼ食べられなかった","少ししか","普通","よく食べた"][e.food??2]} 運動:${["なし","少し","しっかり"][e.exercise??0]}${e.bad?` 辛:${e.bad}`:""} ${e.good?`良:${e.good}`:""}${e.memo?` メモ:${e.memo}`:""}`;
+    }).join("\n");
+
+    const output = `【体調記録データ】
+記録期間：${allKeys[0] ? formatDate(allKeys[0]) : "なし"} 〜 ${allKeys.slice(-1)[0] ? formatDate(allKeys.slice(-1)[0]) : "なし"}（${allKeys.length}日分）
+
+【処方薬】
+${medNames}
+
+【経過・特記事項】
+${noteText}
+
+【日別記録】
+${recordText}`;
+
+    navigator.clipboard.writeText(output).then(() => {
+      setCopied(true); setTimeout(()=>setCopied(false), 3000);
+    }).catch(() => alert("コピーに失敗しました"));
+  }
+
+  return (
+    <div style={{ ...C, border:"1px solid rgba(99,179,237,0.2)", background:"rgba(99,179,237,0.04)", marginTop:"8px" }}>
+      <div style={{ fontSize:"12px", color:"#7c8a9e", marginBottom:"8px" }}>全記録データをClaudeに貼り付けて分析できます</div>
+      <button onClick={exportData} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:`1px solid ${copied?"rgba(52,211,153,0.4)":"rgba(99,179,237,0.3)"}`, background:copied?"rgba(52,211,153,0.2)":"rgba(99,179,237,0.1)", color:copied?"#34d399":"#63b3ed", fontSize:"13px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold", transition:"all 0.3s" }}>
+        {copied ? "✓ コピーしました！Claudeに貼り付けてください" : "📋 全データをクリップボードにコピー"}
+      </button>
+    </div>
+  );
+}
+
 
 function ManualMedForm({ onAdd }) {
   const [open, setOpen]     = useState(false);
