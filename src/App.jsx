@@ -31,6 +31,7 @@ export default function HealthTracker() {
   const [today, setToday]             = useState(() => ({
     date: getTodayKey(), mood: 5, sleep: 7,
     food: 2, exercise: 0, exerciseNote: "",
+    fatigue: 5, motivation: 5,
     bad: "", good: "", memo: "", medsTaken: {}
   }));
   const [aiSummary, setAiSummary]     = useState("");
@@ -157,7 +158,7 @@ export default function HealthTracker() {
     const targetKeys = rangeKeys.length > 0 ? rangeKeys : allKeys.slice(-14);
 
     // 要注目日（スコア4以下）を自動抽出
-    const flaggedDays = targetKeys.filter(k => entries[k]?.mood <= 4);
+    const flaggedDays = targetKeys.filter(k => entries[k]?.mood <= 4 || entries[k]?.fatigue <= 3 || entries[k]?.motivation <= 3);
 
     // 経過ノートを期間内のものに絞る
     const relevantNotes = notes.filter(n => n.date >= startDate && n.date <= endDate);
@@ -265,6 +266,32 @@ ${entryText}
               <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>1h</span><span>12h</span></div>
             </div>
 
+            <div style={C}>
+              <div style={L}>🪫 身体の怠さ（起床時）</div>
+              <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+                <div style={{ fontSize:"48px", fontWeight:"bold", color:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.fatigue], lineHeight:1 }}>{today.fatigue}</div>
+                <div>
+                  <div style={{ fontSize:"16px", color:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.fatigue] }}>{["","全く動けない","ほぼ動けない","かなり辛い","起きるのが辛い","重だるい","少し怠い","普通","割と動ける","良好","全く問題なし"][today.fatigue]}</div>
+                  <div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=最悪 / 10=問題なし</div>
+                </div>
+              </div>
+              <input type="range" min="1" max="10" value={today.fatigue} onChange={e=>setToday({...today,fatigue:+e.target.value})} style={{ width:"100%", accentColor:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.fatigue] }} />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>動けない 1</span><span>10 問題なし</span></div>
+            </div>
+
+            <div style={C}>
+              <div style={L}>⚡ やる気・意欲</div>
+              <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+                <div style={{ fontSize:"48px", fontWeight:"bold", color:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.motivation], lineHeight:1 }}>{today.motivation}</div>
+                <div>
+                  <div style={{ fontSize:"16px", color:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.motivation] }}>{["","全くない","ほぼない","かなり乏しい","ほとんどない","湧きにくい","少しある","普通","わりとある","良好","充分ある"][today.motivation]}</div>
+                  <div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=全くない / 10=充分ある</div>
+                </div>
+              </div>
+              <input type="range" min="1" max="10" value={today.motivation} onChange={e=>setToday({...today,motivation:+e.target.value})} style={{ width:"100%", accentColor:["","#ef4444","#f97316","#fb923c","#fbbf24","#a3e635","#34d399","#22d3ee","#60a5fa","#818cf8","#c084fc"][today.motivation] }} />
+              <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>全くない 1</span><span>10 充分ある</span></div>
+            </div>
+
             {meds.length > 0 ? (
               <div style={C}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
@@ -336,6 +363,8 @@ ${entryText}
                     </div>
                     <div style={{ fontSize:"12px", color:"#9ca3af", marginBottom:"6px" }}>{moodLabels[e.mood]}</div>
                     <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginBottom:"4px" }}>
+                      {e.fatigue != null && <span style={{ fontSize:"11px", color:"#f97316" }}>🪫 怠さ:{e.fatigue}</span>}
+                      {e.motivation != null && <span style={{ fontSize:"11px", color:"#a3e635" }}>⚡ 意欲:{e.motivation}</span>}
                       {e.food != null && <span style={{ fontSize:"11px", color:"#fbbf24" }}>🍚 {["ほぼ×","少し食","普通","よく食"][e.food]}</span>}
                       {e.exercise != null && <span style={{ fontSize:"11px", color:"#34d399" }}>🚶 {["なし","少し","しっかり"][e.exercise]}</span>}
                       {meds.length > 0 && skipped.length === 0 && <span style={{ fontSize:"11px", color:"#34d399" }}>💊 全服薬</span>}
