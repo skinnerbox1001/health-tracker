@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
+const API_KEY   = import.meta.env.VITE_ANTHROPIC_API_KEY || "";
 const ENTRY_KEY = "health-tracker-entries";
 const MED_KEY   = "health-tracker-meds";
 const APT_KEY   = "health-tracker-appointments"; // {lastVisit, nextVisit}
@@ -96,9 +97,12 @@ export default function HealthTracker() {
     try {
       const b64 = await fileToBase64(file);
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+        method: "POST", headers: { "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514", max_tokens: 1000,
+          model: "claude-sonnet-4-6", max_tokens: 1000,
           messages: [{ role: "user", content: [
             { type: "image", source: { type: "base64", media_type: file.type, data: b64 } },
             { type: "text", text: `この処方箋から薬の情報を読み取り、必ずJSON配列のみを返してください。
@@ -214,8 +218,11 @@ ${entryText}
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model:"claude-sonnet-4-20250514", max_tokens:1000, messages:[{role:"user",content:prompt}] })
+        method: "POST", headers: { "Content-Type": "application/json",
+            "x-api-key": API_KEY,
+            "anthropic-version": "2023-06-01",
+            "anthropic-dangerous-direct-browser-access": "true" },
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, messages:[{role:"user",content:prompt}] })
       });
       const data = await res.json();
       setAiSummary(data.content?.map(b=>b.text||"").join("")||"生成に失敗しました");
@@ -385,7 +392,7 @@ ${entryText}
             <ManualMedForm onAdd={m => saveMeds([...meds, { ...m, id:`med_${Date.now()}` }])} />
 
             <div style={{ ...C, background:"rgba(99,179,237,0.06)", border:"1px solid rgba(99,179,237,0.2)", textAlign:"center" }}>
-              <div style={{ fontSize:"13px", color:"#7c8a9e", marginBottom:"12px" }}>処方箋を撮影するとAIが薬の情報を自動読み取りします<br/><span style={{fontSize:"11px",color:"#4a5568"}}>(APIキー設定後に使用可能)</span></div>
+              <div style={{ fontSize:"13px", color:"#7c8a9e", marginBottom:"12px" }}>処方箋を撮影するとAIが薬の情報を自動読み取りします</div>
               <input ref={fileRef} type="file" accept="image/*" capture="environment" onChange={handleScan} style={{ display:"none" }} />
               <button onClick={()=>fileRef.current?.click()} disabled={scanLoading} style={{ width:"100%", padding:"14px", borderRadius:"10px", border:"1px solid rgba(99,179,237,0.4)", background:"rgba(99,179,237,0.15)", color:"#63b3ed", fontSize:"14px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold", opacity:scanLoading?0.6:1 }}>
                 {scanLoading ? "📷 読み取り中..." : "📷 処方箋を撮影・読み込む"}
