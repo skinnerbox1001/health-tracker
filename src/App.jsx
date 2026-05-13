@@ -258,7 +258,7 @@ ${entryText}
             "x-api-key": API_KEY,
             "anthropic-version": "2023-06-01",
             "anthropic-dangerous-direct-browser-access": "true" },
-        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:1000, messages:[{role:"user",content:prompt}] })
+        body: JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:2000, messages:[{role:"user",content:prompt}] })
       });
       const data = await res.json();
       setAiSummary(data.content?.map(b=>b.text||"").join("")||"生成に失敗しました");
