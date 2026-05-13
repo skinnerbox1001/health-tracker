@@ -43,6 +43,7 @@ export default function HealthTracker() {
   const [scanError, setScanError]     = useState("");
   const [calStatus, setCalStatus]     = useState(""); // "", "loading", "done", "error"
   const [editingEntry, setEditingEntry] = useState(null); // key of entry being edited
+  const [addingEntry, setAddingEntry]   = useState(false);
   const [notes, setNotes]               = useState([]); // [{id, date, text}]
   const fileRef = useRef();
 
@@ -83,6 +84,14 @@ export default function HealthTracker() {
   function saveNotes(newNotes) {
     setNotes(newNotes);
     try { localStorage.setItem(NOTE_KEY, JSON.stringify(newNotes)); } catch {}
+  }
+
+  function saveNewEntry(key, newEntry) {
+    if (!key) return;
+    const newEntries = { ...entries, [key]: { ...newEntry, date: key } };
+    setEntries(newEntries);
+    try { localStorage.setItem(ENTRY_KEY, JSON.stringify(newEntries)); } catch {}
+    setAddingEntry(false);
   }
 
   function saveEditedEntry(key, updated) {
@@ -362,6 +371,24 @@ ${entryText}
         {/* ═══ 履歴 ═══ */}
         {view === "history" && (
           <div>
+            {/* 過去の記録を追加 */}
+            {!editingEntry && !addingEntry && (
+              <button onClick={() => setAddingEntry(true)} style={{ width:"100%", padding:"12px", borderRadius:"10px", border:"1px solid rgba(192,132,252,0.3)", background:"rgba(192,132,252,0.08)", color:"#c084fc", fontSize:"13px", fontFamily:"inherit", cursor:"pointer", marginBottom:"12px" }}>
+                ＋ 付け忘れた日の記録を追加
+              </button>
+            )}
+
+            {addingEntry && (
+              <AddEntry
+                entries={entries}
+                meds={meds}
+                moodLabels={moodLabels}
+                moodColors={moodColors}
+                onSave={saveNewEntry}
+                onCancel={() => setAddingEntry(false)}
+              />
+            )}
+
             {editingEntry && (
               <EditEntry
                 entryKey={editingEntry}
@@ -526,6 +553,112 @@ ${entryText}
     </div>
   );
 }
+
+function AddEntry({ entries, meds, moodLabels, moodColors, onSave, onCancel }) {
+  const [key, setKey]   = useState("");
+  const [e, setE]       = useState({ mood:5, sleep:7, fatigue:5, motivation:5, food:2, exercise:0, exerciseNote:"", bad:"", good:"", memo:"", medsTaken:{} });
+  const [error, setError] = useState("");
+
+  function handleSave() {
+    if (!key) { setError("日付を選択してください"); return; }
+    if (entries[key]) { setError("この日はすでに記録があります。履歴から「編集」で修正してください"); return; }
+    onSave(key, e);
+  }
+
+  return (
+    <div style={{ marginBottom:"16px" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
+        <div style={{ fontSize:"14px", color:"#c084fc", fontWeight:"bold" }}>📅 過去の記録を追加</div>
+        <button onClick={onCancel} style={{ padding:"5px 10px", borderRadius:"7px", border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", color:"#7c8a9e", fontSize:"12px", fontFamily:"inherit", cursor:"pointer" }}>キャンセル</button>
+      </div>
+
+      <div style={C}>
+        <div style={L}>日付を選択</div>
+        <input type="date" value={key} onChange={ev=>{setKey(ev.target.value);setError("");}}
+          max={new Date().toISOString().split("T")[0]}
+          style={{...TA, padding:"10px", colorScheme:"dark"}} />
+        {error && <div style={{ fontSize:"12px", color:"#f87171", marginTop:"6px" }}>{error}</div>}
+      </div>
+
+      <div style={C}>
+        <div style={L}>気分</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
+          <div style={{ fontSize:"14px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.mood} onChange={ev=>setE({...e,mood:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.mood] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>睡眠時間</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
+          <div style={{ fontSize:"14px", color:"#63b3ed" }}>時間</div>
+        </div>
+        <input type="range" min="1" max="12" step="0.5" value={e.sleep} onChange={ev=>setE({...e,sleep:+ev.target.value})} style={{ width:"100%", accentColor:"#63b3ed" }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>🪫 怠さ</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.fatigue], lineHeight:1 }}>{e.fatigue}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.fatigue} onChange={ev=>setE({...e,fatigue:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.fatigue] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>⚡ 意欲</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.motivation], lineHeight:1 }}>{e.motivation}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.motivation} onChange={ev=>setE({...e,motivation:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.motivation] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>🍚 食事</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
+          {["ほぼ食べられなかった","少ししか食べられなかった","普通に食べた","よく食べた"].map((label,i) => (
+            <button key={i} onClick={()=>setE({...e,food:i})} style={{ padding:"10px 6px", borderRadius:"10px", border:`1px solid ${e.food===i?"rgba(251,191,36,0.4)":"rgba(255,255,255,0.07)"}`, background:e.food===i?"rgba(251,191,36,0.25)":"rgba(255,255,255,0.04)", color:e.food===i?"#fbbf24":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer", lineHeight:"1.4" }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={C}>
+        <div style={L}>🚶 運動</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"8px" }}>
+          {["なし","少し動いた","しっかり動いた"].map((label,i) => (
+            <button key={i} onClick={()=>setE({...e,exercise:i})} style={{ padding:"10px 4px", borderRadius:"10px", border:`1px solid ${e.exercise===i?"rgba(52,211,153,0.4)":"rgba(255,255,255,0.07)"}`, background:e.exercise===i?"rgba(52,211,153,0.2)":"rgba(255,255,255,0.04)", color:e.exercise===i?"#34d399":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>{label}</button>
+          ))}
+        </div>
+        {e.exercise > 0 && <input type="text" value={e.exerciseNote||""} onChange={ev=>setE({...e,exerciseNote:ev.target.value})} placeholder="内容メモ" style={{...TA,padding:"8px 10px",fontSize:"13px"}} />}
+      </div>
+
+      {meds.length > 0 && (
+        <div style={C}>
+          <div style={L}>💊 服薬</div>
+          {meds.map(m => {
+            const taken = e.medsTaken?.[m.id] !== false;
+            return (
+              <div key={m.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ fontSize:"13px", color:taken?"#e8e0d0":"#4a5568", textDecoration:taken?"none":"line-through" }}>{m.name}</div>
+                <button onClick={()=>setE(prev=>({...prev,medsTaken:{...prev.medsTaken,[m.id]:!taken}}))} style={{ padding:"6px 12px", borderRadius:"7px", border:`1px solid ${taken?"rgba(52,211,153,0.4)":"rgba(255,255,255,0.1)"}`, background:taken?"rgba(52,211,153,0.2)":"rgba(255,255,255,0.06)", color:taken?"#34d399":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>{taken?"✓ 服薬":"スキップ"}</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={C}><div style={L}>😔 辛かったこと</div><textarea value={e.bad} onChange={ev=>setE({...e,bad:ev.target.value})} style={TA} rows={3} /></div>
+      <div style={C}><div style={L}>😊 良かったこと</div><textarea value={e.good} onChange={ev=>setE({...e,good:ev.target.value})} style={TA} rows={3} /></div>
+      <div style={C}><div style={L}>📝 メモ</div><textarea value={e.memo} onChange={ev=>setE({...e,memo:ev.target.value})} style={TA} rows={2} /></div>
+
+      <button onClick={handleSave} style={{ width:"100%", padding:"16px", borderRadius:"12px", border:"1px solid rgba(192,132,252,0.4)", background:"rgba(192,132,252,0.2)", color:"#c084fc", fontSize:"16px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold" }}>
+        ✓ 記録を追加
+      </button>
+    </div>
+  );
+}
+
 
 function EditEntry({ entryKey, entry, meds, moodLabels, moodColors, formatDate, onSave, onCancel }) {
   const [e, setE] = useState({ ...entry });
