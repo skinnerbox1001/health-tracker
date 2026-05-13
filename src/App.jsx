@@ -216,22 +216,41 @@ ${flaggedText}
 【日別記録】
 ${entryText}
 
+このサマリーは医師が診察時に直接参照します。医師が読みやすい形式で、簡潔・具体的に記載してください。
+
 以下の形式で出力してください：
 
-## 📊 ${periodText}のまとめ
-（気分・睡眠・食事・運動・服薬の全体傾向を簡潔に）
+## 患者報告サマリー
+氏名：山崎雅文　記録期間：${periodText}　記録日数：${targetKeys.length}日
 
-## ⚠️ 先生に必ず伝えること
-（特に辛かった日・服薬スキップのパターンを3点以内で箇条書き）
+---
 
-## 💬 診察で使える一言
-（最初に先生に言う短いセリフ例を1〜2文）
+## 📊 期間中の状態推移
 
-## ❓ 先生への質問候補
-（今の状態を踏まえた質問3つ）
+【気分スコア】平均・最高・最低・特徴的な変動を1〜2文で
+【身体的怠さ】平均的な水準と特徴を1文で
+【意欲・活力】平均的な水準と特徴を1文で
+【睡眠】平均時間と質の傾向を1文で
+【食事・運動】概況を1文で
+【服薬遵守】服薬状況を1文で（スキップがあれば具体的に）
 
-## 📈 気になるパターン
-（睡眠・気分・食事・服薬の相関など）`;
+---
+
+## ⚠️ 今回の診察で特に報告すべき事項
+
+（最重要な事項を箇条書き3点以内。具体的な日付や数値を含める）
+
+---
+
+## 📈 観察されたパターン・相関
+
+（気分・睡眠・怠さ・意欲の相関、悪化・改善のトリガーなど。医師が治療方針の参考にできる情報）
+
+---
+
+## ❓ 患者からの質問・相談事項
+
+（患者が先生に聞きたいこと、相談したいことを箇条書き）`;
 
     try {
       const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -539,6 +558,8 @@ ${entryText}
               <div style={{ fontSize:"12px", color:"#4a5568" }}>記録: {Object.keys(entries).length}日分 ／ 処方薬: {meds.length}種</div>
             </div>
 
+            {Object.keys(entries).length > 1 && <WellnessChart entries={entries} apt={apt} formatDate={formatDate} />}
+
             <button onClick={generateSummary} disabled={loading} style={{ width:"100%", padding:"16px", borderRadius:"12px", border:"1px solid rgba(99,179,237,0.4)", background:"rgba(99,179,237,0.15)", color:"#63b3ed", fontSize:"15px", fontFamily:"inherit", cursor:loading?"not-allowed":"pointer", fontWeight:"bold", marginBottom:"20px", opacity:loading?0.6:1 }}>
               {loading ? "生成中..." : "📋 診察サマリーを生成"}
             </button>
@@ -546,13 +567,98 @@ ${entryText}
 
             {/* データ出力 */}
             <DataExport entries={entries} meds={meds} notes={notes} formatDate={formatDate} />
-            {aiSummary && !loading && <div style={{ ...C, whiteSpace:"pre-wrap", fontSize:"14px", lineHeight:"1.8", color:"#d4cfc8" }}>{aiSummary}</div>}
+            {aiSummary && !loading && <SummaryDisplay text={aiSummary} />}
           </div>
         )}
       </div>
     </div>
   );
 }
+
+function WellnessChart({ entries, apt, formatDate }) {
+  const allKeys = Object.keys(entries).sort();
+  const startDate = apt.lastVisit || allKeys[0];
+  const endDate   = apt.nextVisit || allKeys[allKeys.length - 1];
+  const keys = allKeys.filter(k => k >= startDate && k <= endDate).slice(-14);
+  if (keys.length < 2) return null;
+
+  const W = 340, H = 160, PAD = 28;
+  const chartW = W - PAD * 2;
+  const chartH = H - PAD * 2;
+
+  function toX(i) { return PAD + (i / (keys.length - 1)) * chartW; }
+  function toY(v) { return PAD + (1 - (v - 1) / 9) * chartH; }
+
+  function makePath(getter, color) {
+    const pts = keys.map((k, i) => {
+      const v = getter(entries[k]);
+      return v != null ? `${i === 0 || getter(entries[keys[i-1]]) == null ? "M" : "L"}${toX(i)},${toY(v)}` : null;
+    }).filter(Boolean).join(" ");
+    return pts ? <path key={color} d={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /> : null;
+  }
+
+  const gridLines = [2,4,6,8,10];
+
+  return (
+    <div style={{ ...C, marginBottom:"16px" }}>
+      <div style={{ fontSize:"12px", color:"#7c8a9e", marginBottom:"8px", letterSpacing:"1px", textTransform:"uppercase" }}>📈 期間中の推移グラフ</div>
+      <div style={{ display:"flex", gap:"12px", marginBottom:"8px", flexWrap:"wrap" }}>
+        {[["気分","#60a5fa"],["怠さ","#f97316"],["意欲","#a3e635"]].map(([label,color]) => (
+          <div key={label} style={{ display:"flex", alignItems:"center", gap:"4px" }}>
+            <div style={{ width:"16px", height:"2px", background:color, borderRadius:"1px" }}></div>
+            <span style={{ fontSize:"11px", color:"#7c8a9e" }}>{label}</span>
+          </div>
+        ))}
+      </div>
+      <svg width="100%" viewBox={`0 0 ${W} ${H}`} style={{ overflow:"visible" }}>
+        {gridLines.map(v => (
+          <g key={v}>
+            <line x1={PAD} y1={toY(v)} x2={W-PAD} y2={toY(v)} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />
+            <text x={PAD-4} y={toY(v)+4} fill="#4a5568" fontSize="9" textAnchor="end">{v}</text>
+          </g>
+        ))}
+        {keys.map((k, i) => (
+          i % Math.ceil(keys.length / 5) === 0 ? (
+            <text key={k} x={toX(i)} y={H-4} fill="#4a5568" fontSize="8" textAnchor="middle">
+              {`${new Date(k).getMonth()+1}/${new Date(k).getDate()}`}
+            </text>
+          ) : null
+        ))}
+        {makePath(e => e.mood, "#60a5fa")}
+        {makePath(e => e.fatigue, "#f97316")}
+        {makePath(e => e.motivation, "#a3e635")}
+        {keys.map((k, i) => {
+          const e = entries[k];
+          return e.mood != null ? <circle key={k} cx={toX(i)} cy={toY(e.mood)} r="3" fill="#60a5fa" /> : null;
+        })}
+      </svg>
+    </div>
+  );
+}
+
+function SummaryDisplay({ text }) {
+  const lines = text.split("\n");
+  return (
+    <div style={{ ...C, fontSize:"14px", lineHeight:"1.8", color:"#d4cfc8" }}>
+      {lines.map((line, i) => {
+        if (line.startsWith("## ")) {
+          return <div key={i} style={{ fontSize:"15px", fontWeight:"bold", color:"#e8e0d0", marginTop: i > 0 ? "20px" : "0", marginBottom:"8px", borderBottom:"1px solid rgba(255,255,255,0.1)", paddingBottom:"6px" }}>{line.replace("## ","")}</div>;
+        }
+        if (line.startsWith("---")) {
+          return null;
+        }
+        if (line.startsWith("【") && line.includes("】")) {
+          return <div key={i} style={{ color:"#63b3ed", marginTop:"6px" }}>{line}</div>;
+        }
+        if (line.startsWith("・") || line.startsWith("（") || line.match(/^[①②③④⑤]/)) {
+          return <div key={i} style={{ paddingLeft:"8px", color:"#d4cfc8" }}>{line}</div>;
+        }
+        return <div key={i}>{line}</div>;
+      })}
+    </div>
+  );
+}
+
 
 function AddEntry({ entries, meds, moodLabels, moodColors, onSave, onCancel }) {
   const [key, setKey]   = useState("");
