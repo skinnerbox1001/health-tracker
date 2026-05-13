@@ -266,7 +266,7 @@ ${entryText}
     setLoading(false);
   }
 
-  const recentDays = Object.keys(entries).sort().slice(-7).reverse();
+  const recentDays = Object.keys(entries).sort().reverse();
 
   return (
     <div style={{ minHeight:"100vh", background:"linear-gradient(135deg,#0f1117 0%,#1a1f2e 50%,#161b27 100%)", fontFamily:"'Georgia','Noto Serif JP',serif", color:"#e8e0d0", paddingBottom:"80px" }}>
