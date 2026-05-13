@@ -42,6 +42,7 @@ export default function HealthTracker() {
   const [scannedMeds, setScannedMeds] = useState(null);
   const [scanError, setScanError]     = useState("");
   const [calStatus, setCalStatus]     = useState(""); // "", "loading", "done", "error"
+  const [editingEntry, setEditingEntry] = useState(null); // key of entry being edited
   const [notes, setNotes]               = useState([]); // [{id, date, text}]
   const fileRef = useRef();
 
@@ -82,6 +83,13 @@ export default function HealthTracker() {
   function saveNotes(newNotes) {
     setNotes(newNotes);
     try { localStorage.setItem(NOTE_KEY, JSON.stringify(newNotes)); } catch {}
+  }
+
+  function saveEditedEntry(key, updated) {
+    const newEntries = { ...entries, [key]: { ...updated, date: key } };
+    setEntries(newEntries);
+    try { localStorage.setItem(ENTRY_KEY, JSON.stringify(newEntries)); } catch {}
+    setEditingEntry(null);
   }
 
   function takeAll() {
@@ -354,35 +362,49 @@ ${entryText}
         {/* ═══ 履歴 ═══ */}
         {view === "history" && (
           <div>
-            {recentDays.length === 0
-              ? <div style={{ textAlign:"center", color:"#7c8a9e", padding:"40px 0" }}>まだ記録がありません</div>
-              : recentDays.map(key => {
-                const e = entries[key];
-                const skipped = meds.filter(m => e.medsTaken?.[m.id] === false);
-                return (
-                  <div key={key} style={{...C, marginBottom:"12px"}}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
-                      <span style={{ fontSize:"13px", color:"#7c8a9e" }}>{formatDate(key)}</span>
-                      <div style={{ display:"flex", gap:"12px", alignItems:"center" }}>
-                        <span style={{ fontSize:"12px", color:"#63b3ed" }}>😴 {e.sleep}h</span>
-                        <span style={{ fontSize:"22px", fontWeight:"bold", color:moodColors[e.mood] }}>{e.mood}</span>
+            {editingEntry && (
+              <EditEntry
+                entryKey={editingEntry}
+                entry={entries[editingEntry]}
+                meds={meds}
+                moodLabels={moodLabels}
+                moodColors={moodColors}
+                formatDate={formatDate}
+                onSave={saveEditedEntry}
+                onCancel={() => setEditingEntry(null)}
+              />
+            )}
+            {!editingEntry && (
+              recentDays.length === 0
+                ? <div style={{ textAlign:"center", color:"#7c8a9e", padding:"40px 0" }}>まだ記録がありません</div>
+                : recentDays.map(key => {
+                  const e = entries[key];
+                  const skipped = meds.filter(m => e.medsTaken?.[m.id] === false);
+                  return (
+                    <div key={key} style={{...C, marginBottom:"12px"}}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"8px" }}>
+                        <span style={{ fontSize:"13px", color:"#7c8a9e" }}>{formatDate(key)}</span>
+                        <div style={{ display:"flex", gap:"8px", alignItems:"center" }}>
+                          <span style={{ fontSize:"12px", color:"#63b3ed" }}>😴 {e.sleep}h</span>
+                          <span style={{ fontSize:"22px", fontWeight:"bold", color:moodColors[e.mood] }}>{e.mood}</span>
+                          <button onClick={() => setEditingEntry(key)} style={{ padding:"5px 10px", borderRadius:"7px", border:"1px solid rgba(99,179,237,0.3)", background:"rgba(99,179,237,0.1)", color:"#63b3ed", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>編集</button>
+                        </div>
                       </div>
+                      <div style={{ fontSize:"12px", color:"#9ca3af", marginBottom:"6px" }}>{moodLabels[e.mood]}</div>
+                      <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginBottom:"4px" }}>
+                        {e.fatigue != null && <span style={{ fontSize:"11px", color:"#f97316" }}>🪫 怠さ:{e.fatigue}</span>}
+                        {e.motivation != null && <span style={{ fontSize:"11px", color:"#a3e635" }}>⚡ 意欲:{e.motivation}</span>}
+                        {e.food != null && <span style={{ fontSize:"11px", color:"#fbbf24" }}>🍚 {["ほぼ×","少し食","普通","よく食"][e.food]}</span>}
+                        {e.exercise != null && <span style={{ fontSize:"11px", color:"#34d399" }}>🚶 {["なし","少し","しっかり"][e.exercise]}</span>}
+                        {meds.length > 0 && skipped.length === 0 && <span style={{ fontSize:"11px", color:"#34d399" }}>💊 全服薬</span>}
+                        {skipped.length > 0 && <span style={{ fontSize:"11px", color:"#f87171" }}>💊 skip:{skipped.map(m=>m.name).join("・")}</span>}
+                      </div>
+                      {e.bad && <div style={{ fontSize:"12px", color:"#f87171", marginTop:"4px" }}>😔 {e.bad}</div>}
+                      {e.good && <div style={{ fontSize:"12px", color:"#34d399", marginTop:"4px" }}>😊 {e.good}</div>}
                     </div>
-                    <div style={{ fontSize:"12px", color:"#9ca3af", marginBottom:"6px" }}>{moodLabels[e.mood]}</div>
-                    <div style={{ display:"flex", gap:"10px", flexWrap:"wrap", marginBottom:"4px" }}>
-                      {e.fatigue != null && <span style={{ fontSize:"11px", color:"#f97316" }}>🪫 怠さ:{e.fatigue}</span>}
-                      {e.motivation != null && <span style={{ fontSize:"11px", color:"#a3e635" }}>⚡ 意欲:{e.motivation}</span>}
-                      {e.food != null && <span style={{ fontSize:"11px", color:"#fbbf24" }}>🍚 {["ほぼ×","少し食","普通","よく食"][e.food]}</span>}
-                      {e.exercise != null && <span style={{ fontSize:"11px", color:"#34d399" }}>🚶 {["なし","少し","しっかり"][e.exercise]}</span>}
-                      {meds.length > 0 && skipped.length === 0 && <span style={{ fontSize:"11px", color:"#34d399" }}>💊 全服薬</span>}
-                      {skipped.length > 0 && <span style={{ fontSize:"11px", color:"#f87171" }}>💊 skip:{skipped.map(m=>m.name).join("・")}</span>}
-                    </div>
-                    {e.bad && <div style={{ fontSize:"12px", color:"#f87171", marginTop:"4px" }}>😔 {e.bad}</div>}
-                    {e.good && <div style={{ fontSize:"12px", color:"#34d399", marginTop:"4px" }}>😊 {e.good}</div>}
-                  </div>
-                );
-              })
-            }
+                  );
+                })
+            )}
           </div>
         )}
 
@@ -504,6 +526,96 @@ ${entryText}
     </div>
   );
 }
+
+function EditEntry({ entryKey, entry, meds, moodLabels, moodColors, formatDate, onSave, onCancel }) {
+  const [e, setE] = useState({ ...entry });
+
+  return (
+    <div style={{ marginBottom:"16px" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:"12px" }}>
+        <div style={{ fontSize:"14px", color:"#c084fc", fontWeight:"bold" }}>✏️ {formatDate(entryKey)} を編集</div>
+        <button onClick={onCancel} style={{ padding:"5px 10px", borderRadius:"7px", border:"1px solid rgba(255,255,255,0.1)", background:"rgba(255,255,255,0.05)", color:"#7c8a9e", fontSize:"12px", fontFamily:"inherit", cursor:"pointer" }}>キャンセル</button>
+      </div>
+
+      <div style={C}>
+        <div style={L}>気分</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
+          <div style={{ fontSize:"14px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.mood} onChange={ev=>setE({...e,mood:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.mood] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>睡眠時間</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
+          <div style={{ fontSize:"14px", color:"#63b3ed" }}>時間</div>
+        </div>
+        <input type="range" min="1" max="12" step="0.5" value={e.sleep} onChange={ev=>setE({...e,sleep:+ev.target.value})} style={{ width:"100%", accentColor:"#63b3ed" }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>🪫 怠さ</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.fatigue??5], lineHeight:1 }}>{e.fatigue??5}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.fatigue??5} onChange={ev=>setE({...e,fatigue:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.fatigue??5] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>⚡ 意欲</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
+          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.motivation??5], lineHeight:1 }}>{e.motivation??5}</div>
+        </div>
+        <input type="range" min="1" max="10" value={e.motivation??5} onChange={ev=>setE({...e,motivation:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.motivation??5] }} />
+      </div>
+
+      <div style={C}>
+        <div style={L}>🍚 食事</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px" }}>
+          {["ほぼ食べられなかった","少ししか食べられなかった","普通に食べた","よく食べた"].map((label,i) => (
+            <button key={i} onClick={()=>setE({...e,food:i})} style={{ padding:"10px 6px", borderRadius:"10px", border:`1px solid ${e.food===i?"rgba(251,191,36,0.4)":"rgba(255,255,255,0.07)"}`, background:e.food===i?"rgba(251,191,36,0.25)":"rgba(255,255,255,0.04)", color:e.food===i?"#fbbf24":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer", lineHeight:"1.4" }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={C}>
+        <div style={L}>🚶 運動</div>
+        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:"8px", marginBottom:"8px" }}>
+          {["なし","少し動いた","しっかり動いた"].map((label,i) => (
+            <button key={i} onClick={()=>setE({...e,exercise:i})} style={{ padding:"10px 4px", borderRadius:"10px", border:`1px solid ${e.exercise===i?"rgba(52,211,153,0.4)":"rgba(255,255,255,0.07)"}`, background:e.exercise===i?"rgba(52,211,153,0.2)":"rgba(255,255,255,0.04)", color:e.exercise===i?"#34d399":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>{label}</button>
+          ))}
+        </div>
+        {e.exercise > 0 && <input type="text" value={e.exerciseNote||""} onChange={ev=>setE({...e,exerciseNote:ev.target.value})} placeholder="内容メモ" style={{...TA,padding:"8px 10px",fontSize:"13px"}} />}
+      </div>
+
+      {meds.length > 0 && (
+        <div style={C}>
+          <div style={L}>💊 服薬</div>
+          {meds.map(m => {
+            const taken = e.medsTaken?.[m.id] !== false;
+            return (
+              <div key={m.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"8px 0", borderBottom:"1px solid rgba(255,255,255,0.05)" }}>
+                <div style={{ fontSize:"13px", color:taken?"#e8e0d0":"#4a5568", textDecoration:taken?"none":"line-through" }}>{m.name}</div>
+                <button onClick={()=>setE(prev=>({...prev,medsTaken:{...prev.medsTaken,[m.id]:!taken}}))} style={{ padding:"6px 12px", borderRadius:"7px", border:`1px solid ${taken?"rgba(52,211,153,0.4)":"rgba(255,255,255,0.1)"}`, background:taken?"rgba(52,211,153,0.2)":"rgba(255,255,255,0.06)", color:taken?"#34d399":"#7c8a9e", fontSize:"11px", fontFamily:"inherit", cursor:"pointer" }}>{taken?"✓ 服薬":"スキップ"}</button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={C}><div style={L}>😔 辛かったこと</div><textarea value={e.bad||""} onChange={ev=>setE({...e,bad:ev.target.value})} style={TA} rows={3} /></div>
+      <div style={C}><div style={L}>😊 良かったこと</div><textarea value={e.good||""} onChange={ev=>setE({...e,good:ev.target.value})} style={TA} rows={3} /></div>
+      <div style={C}><div style={L}>📝 メモ</div><textarea value={e.memo||""} onChange={ev=>setE({...e,memo:ev.target.value})} style={TA} rows={2} /></div>
+
+      <button onClick={()=>onSave(entryKey,e)} style={{ width:"100%", padding:"16px", borderRadius:"12px", border:"1px solid rgba(192,132,252,0.4)", background:"rgba(192,132,252,0.2)", color:"#c084fc", fontSize:"16px", fontFamily:"inherit", cursor:"pointer", fontWeight:"bold" }}>
+        ✓ 修正を保存
+      </button>
+    </div>
+  );
+}
+
 
 function NotesForm({ notes, entries, onSave, formatDate }) {
   const [text, setText] = useState("");
