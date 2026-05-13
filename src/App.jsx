@@ -687,37 +687,43 @@ function AddEntry({ entries, meds, moodLabels, moodColors, onSave, onCancel }) {
       </div>
 
       <div style={C}>
-        <div style={L}>気分</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
-          <div style={{ fontSize:"14px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div>
+        <div style={L}>今日の気分</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>10段階</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.mood} onChange={ev=>setE({...e,mood:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.mood] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>最悪 1</span><span>10 最高</span></div>
       </div>
 
       <div style={C}>
         <div style={L}>睡眠時間</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
-          <div style={{ fontSize:"14px", color:"#63b3ed" }}>時間</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
+          <div style={{ fontSize:"16px", color:"#63b3ed" }}>時間</div>
         </div>
         <input type="range" min="1" max="12" step="0.5" value={e.sleep} onChange={ev=>setE({...e,sleep:+ev.target.value})} style={{ width:"100%", accentColor:"#63b3ed" }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>1h</span><span>12h</span></div>
       </div>
 
       <div style={C}>
-        <div style={L}>🪫 怠さ</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.fatigue], lineHeight:1 }}>{e.fatigue}</div>
+        <div style={L}>🪫 身体の怠さ（起床時）</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.fatigue], lineHeight:1 }}>{e.fatigue}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.fatigue] }}>{["","全く動けない","ほぼ動けない","かなり辛い","起きるのが辛い","重だるい","少し怠い","普通","割と動ける","良好","全く問題なし"][e.fatigue]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=最悪 / 10=問題なし</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.fatigue} onChange={ev=>setE({...e,fatigue:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.fatigue] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>動けない 1</span><span>10 問題なし</span></div>
       </div>
 
       <div style={C}>
-        <div style={L}>⚡ 意欲</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.motivation], lineHeight:1 }}>{e.motivation}</div>
+        <div style={L}>⚡ やる気・意欲</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.motivation], lineHeight:1 }}>{e.motivation}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.motivation] }}>{["","全くない","ほぼない","かなり乏しい","ほとんどない","湧きにくい","少しある","普通","わりとある","良好","充分ある"][e.motivation]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=全くない / 10=充分ある</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.motivation} onChange={ev=>setE({...e,motivation:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.motivation] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>全くない 1</span><span>10 充分ある</span></div>
       </div>
 
       <div style={C}>
@@ -777,37 +783,43 @@ function EditEntry({ entryKey, entry, meds, moodLabels, moodColors, formatDate, 
       </div>
 
       <div style={C}>
-        <div style={L}>気分</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
-          <div style={{ fontSize:"14px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div>
+        <div style={L}>今日の気分</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.mood], lineHeight:1 }}>{e.mood}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.mood] }}>{moodLabels[e.mood]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>10段階</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.mood} onChange={ev=>setE({...e,mood:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.mood] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>最悪 1</span><span>10 最高</span></div>
       </div>
 
       <div style={C}>
         <div style={L}>睡眠時間</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
-          <div style={{ fontSize:"14px", color:"#63b3ed" }}>時間</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:"#63b3ed", lineHeight:1 }}>{e.sleep}</div>
+          <div style={{ fontSize:"16px", color:"#63b3ed" }}>時間</div>
         </div>
         <input type="range" min="1" max="12" step="0.5" value={e.sleep} onChange={ev=>setE({...e,sleep:+ev.target.value})} style={{ width:"100%", accentColor:"#63b3ed" }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>1h</span><span>12h</span></div>
       </div>
 
       <div style={C}>
-        <div style={L}>🪫 怠さ</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.fatigue??5], lineHeight:1 }}>{e.fatigue??5}</div>
+        <div style={L}>🪫 身体の怠さ（起床時）</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.fatigue??5], lineHeight:1 }}>{e.fatigue??5}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.fatigue??5] }}>{["","全く動けない","ほぼ動けない","かなり辛い","起きるのが辛い","重だるい","少し怠い","普通","割と動ける","良好","全く問題なし"][e.fatigue??5]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=最悪 / 10=問題なし</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.fatigue??5} onChange={ev=>setE({...e,fatigue:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.fatigue??5] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>動けない 1</span><span>10 問題なし</span></div>
       </div>
 
       <div style={C}>
-        <div style={L}>⚡ 意欲</div>
-        <div style={{ display:"flex", alignItems:"center", gap:"8px", marginBottom:"8px" }}>
-          <div style={{ fontSize:"36px", fontWeight:"bold", color:moodColors[e.motivation??5], lineHeight:1 }}>{e.motivation??5}</div>
+        <div style={L}>⚡ やる気・意欲</div>
+        <div style={{ display:"flex", alignItems:"center", gap:"12px", marginBottom:"12px" }}>
+          <div style={{ fontSize:"48px", fontWeight:"bold", color:moodColors[e.motivation??5], lineHeight:1 }}>{e.motivation??5}</div>
+          <div><div style={{ fontSize:"16px", color:moodColors[e.motivation??5] }}>{["","全くない","ほぼない","かなり乏しい","ほとんどない","湧きにくい","少しある","普通","わりとある","良好","充分ある"][e.motivation??5]}</div><div style={{ fontSize:"11px", color:"#7c8a9e" }}>1=全くない / 10=充分ある</div></div>
         </div>
         <input type="range" min="1" max="10" value={e.motivation??5} onChange={ev=>setE({...e,motivation:+ev.target.value})} style={{ width:"100%", accentColor:moodColors[e.motivation??5] }} />
+        <div style={{ display:"flex", justifyContent:"space-between", fontSize:"10px", color:"#4a5568", marginTop:"4px" }}><span>全くない 1</span><span>10 充分ある</span></div>
       </div>
 
       <div style={C}>
