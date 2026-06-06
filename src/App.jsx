@@ -113,7 +113,7 @@ export default function HealthTracker() {
     setScanLoading(true); setScanError(""); setScannedMeds(null);
     try {
       const b64 = await fileToBase64(file);
-      const res = await fetch("https:///api/anthropic", {
+      const res = await fetch("/api/anthropic", {
         method: "POST", headers: { "Content-Type": "application/json",
             "x-api-key": API_KEY,
             "anthropic-version": "2023-06-01",
@@ -253,7 +253,7 @@ ${entryText}
 （患者が先生に聞きたいこと、相談したいことを箇条書き）`;
 
     try {
-      const res = await fetch("https:///api/anthropic", {
+      const res = await fetch("/api/anthropic", {
         method: "POST", headers: { "Content-Type": "application/json",
             "x-api-key": API_KEY,
             "anthropic-version": "2023-06-01",
